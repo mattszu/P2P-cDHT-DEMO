@@ -24,6 +24,7 @@ sending and recieving pings.
 From here selecting a peer, commands can be typed into the corresponding terminal.
 
 COMMANDS
+
 request: request a file - file must be a four digit number e.g "request 2012"
 quit: gracefully depart from peer network
 
