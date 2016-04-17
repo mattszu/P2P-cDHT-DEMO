@@ -6,7 +6,7 @@
 Peer circularly connected, each peer is assigned a number, and is 'connected' to and pings the next two peers and after it.
 i.e in a peer list of 1,3,4,5,8,10,12,15   peer 1 pings 3&4, peer 3 pings 4&5, .. peer 15 pings 1&3.
 
-getting started - execute starting script in terminal:
+<b>getting started - execute starting script in terminal:</b>
 
 xterm -hold -title "Peer 1" -e "java cdht 1 3 4" &
 xterm -hold -title "Peer 3" -e "java cdht 3 4 5" &
@@ -27,10 +27,9 @@ From here selecting a peer, commands can be typed into the corresponding termina
 
 <b>request:</b> request a file - file must be a four digit number e.g "request 2012"
 
-quit: gracefully depart from peer network
+<b>quit:</b> gracefully depart from peer network
 
-
-
+<br>
 files undergo simulated hashing i.e filename converted to integers and divided by 256.
 the hash number is between 0-255.
 
