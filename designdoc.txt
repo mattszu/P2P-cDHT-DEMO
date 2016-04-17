@@ -1,0 +1,133 @@
+
+The goal of the demonstration was to design circular distributed hash table with use of a
+peer-to-peer protocol. Thus the design is largely influencede by the requirements of such a
+networking structure and how the peers are involved.
+
+Firstly, peers keep track of eachother by pinging their successors, usually routinely. Thus
+a mechnism needed to both send pings and receive them via UDP. Next each peer must be able to
+take commands in via standard input and lastly send and respond to messages, to and from other
+peers via TCP.
+
+The requirements are thus essentially; a peer pinging routine â handled by the PingPeers class,
+a listener to receive and respond to pings â handled by the PingListener class, a routine which
+receives commands from standard input â handeled by the CommandMessenger class and lastly a
+listener which recieves command messages from peers â handeled by CommandListener class. These
+all must operate concurrently and therefore run as seperate threads and are aided by the Peer
+class which adds general characteristics and methods that these classes use.
+
+Each peer has common characteristics such as their peerID which identifies them, the succID and
+succID2 which identifies their first and second successors respectively. Other classes use and
+change these variable of their respective peers in order to complete their actions.
+
+The PingPeers class extended by TimerTask, allows each Peer to ping its successors by forming a
+REQUEST message ["REQ" 'peerID'] identified as the a string containing command âREQâ followed by
+the requesting peer's peerID. PingPeers starts 3 seconds after program initiated and then every
+45 seconds. This pinging is essentially to peer as not only does it identify that successors are
+alive by response, but also lets these successors identify their predecessors. At the start of
+ping cycle, the preID1 and preID2 (predecessor IDs of each peer) are reset to a value of '777'
+an arbitrary value outside the peer range of [0-255]. Then using the pingRequest metthod of
+the Peer class. A ping request is sent to the first successor of the peer. This is followed by
+a short time delay of 2 seconds and then a ping request to the second successor is sent. This
+short delay between request is important as the PingListener, will take the first ping request
+peer number and assign it as the preID1 of the successor peer, and the second ping request will
+be assigned to preID2. With out the slight delay there can be issues where the second request
+can be assign as  preID2 and the first as preID1. The exact assignment of these is important in
+times of network change i.e. when a peer leaves the network, and reassignments must be made to
+recosolidate the circular network scheme.  Time delay is the most convinient way to differentiat
+between preID1 and preID2, because its simply to implement and preIDs whether 1 or 2 have no
+other discernable quality as higher or lower peerID do not quailify one over the other in a
+cicular network, especially seen when the last (highest peer) links to first (lowest peer).
+
+### limitation syncing and only way of preID assignment have to wait 45secs to update after
+network change.###
+
+The PingListener class, runs continuously as a separate thread, listens on peer UDP port for
+ping REQUEST messages and sends the corresponding RESPONSE messages ["REP" 'peerID']. From these
+request messages it  assigns predecessor IDs via the Peer class's getPred method, by testing if
+either predID1 or predID2 is equal to blank value (777) and then passing the requests message
+sending peer ID as integer to getPred. As previously mentioned due to the purposeful time delay
+the first sending peer id to be passed to getPred should be the first requesting peer designated
+as preID1.
+
+The CommandMessenger class, running continuosly as a separate thread, monitors and takes in
+standard input for user generated commands (only two "request *filename*" and "quit"). From
+these user commands it form the appropriate command messages ("file" message as result of user
+"request" command and "depart" messages as result of user "quit" command). The 'file' message
+are of the form ["file" "filename" 'originatingPeer' 'sendingPeer'] where the originating
+peer is the peer that recieve the initial request command via standard input. The 'quit'
+command results in 'depart' messages, which are of the form ["depart" 'type' 'peerID' 'succID'
+'succID2'] where 'type' is an integer either 1 or 2 and peerID is of the 'departing' (quitting)
+peer and succID and succID2 are its successors. Type 1 'depart' is sent to the first predecessor,
+which must change both of its successors to the deaprting peers successors, it then notifies the
+departing peer of these changes with a "depAck" message, which features same form of 'depart'
+message, except with "depAck" (departing acknowledgment) ["depAck: 'type' 'peerID' 'succID'
+'succID2'] instead of 'depart' command. When the departing peer recieves this it checks that the
+'depAck' is indeed a type 1, and that its successor IDs match the successor IDs of the sending
+peer (predecessor 1). Should it pass this validation, it prints a success message, closes
+the tcp conection and proceeds to message the second successor with a "depart" type 2 message
+(exact same form a type 1, except with an interger of 2 as type). The second predecessor must
+change its succID2 (second successor) to departing peers succID (first successor). It too then
+send a "depAck" message, exact form as the other except of type 2 to the departing peer, which
+validates this and prints a success message and closes the connection. Once both predecessors
+have confirm that changes to their successors are correct and reenable the circular network,
+the departing peer prints a goodbye message and exits program.
+
+In most cases command messages are sent with use of the SendCommandTCP class 'send'' method. Which
+opens a TCP socket sends a one-way message via TCP and close the socket after, leaving the
+reciept act on the message appropriately. The 'quit' command however does not use this class
+method, as after it open a TCP connection and sends message it wait to recieve acknowledgement
+
+The CommandListener class,  also runs continuosly as a separate thread , and listen to commands
+from commandmessenger and responses forwarded from CommandListeners on other peers. CommandListener
+is responsible for recieveing 'depart' messages and responding with 'depAck' messages, forwarding
+'file' messages as a result of a request, and ultimately if a the specified file is located
+on a peer – it will send a 'found' message ["found" ''filename' 'peerID'] to the originating
+peer found in the 'file' message.
+
+The cdht class which contains the main method, upon startup simply intializes all variables
+such as peerIDs, succIDs and creates the necessary sockets, and then starts the threads for
+PingListener, CommandListener, CommandMessenger and the setup the timed PringPeers.
+
+There are some limitations to this design. When a peer leaves although all predecessors of the
+peer, are updated to have new successors, the departing peers successors' predecessors are not
+updated until the next ping cycle.
+
+This leave to a few limitations – only one peer can quit per ping cycle (45secs), after all
+predecessors are updated.
+
+If a peer quits and one of its successor peer quit before the ping cycle- it will send 'depart'
+messages to either the wrong predecessors or undelivered messages to the departed peer, thus
+the circular network is not reestablished and would feature 'gaps' in the network.
+
+This could be amended by creating another sent of messages for successors, from the departing
+peer to update/change thier predecessors or another approach would be to initiate a ping cycle
+right after a peer departs from the network.
+
+
+ Another limitation is that becuase the fileStoreCheck method which checks if a peer has
+ the requested filed stored, has some IF tests that rely on accurately knowing predecessor
+ IDs. Should a file request occur at the SAME time as the ping cycle, the standard output
+ maybe spammed with "File request message has been forwarded to my successor" many times until,
+ and then stop when preID1 and preID2 of all peers have been again reassigned from blank value
+ (777) to the correct values.
+
+An approach to fixing this could be to stop/pasuse the pingPeers thread, upon a file request
+command, and starting once again after the request has been found, or the reverse where messages
+are paused until the ping cycle is complete and then resumed forwarding.
+
+A dditionally the program is heavily relient on a startup script, having all peers of network
+start at the same time – this works because when started all peers experience ping cycle at
+the same time, however if one peer joins late or is out of sync, it'll recieve REQUEST messages,
+but then override the resulting preIDs with blank value 777 becuase its late, and will continue
+this way for the entire runtime of the network.
+
+##This was discovered as in xterm the startup script would not execute the last command (peer
+15) at times ##
+
+Not considering a method to 'add' a peer to network, a way to ammend this might be to have the
+ping cycle linked to the host systems clock, and routinely pingPeers every 60secs. This may
+work as in this situation, all peers are on a single host, so even if a peer is assigned/joins
+late, its ping routine would sync and start with every peer for every minute passing on host
+systems clock, so that even if it missed the first ping cylce, by the second one all the correct
+predecessors would be assigned.  This would only work in this instance where all peers are on
+the same host (via port IDs).
