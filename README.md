@@ -25,9 +25,10 @@ From here selecting a peer, commands can be typed into the corresponding termina
 
 #COMMANDS
 
-request: request a file - file must be a four digit number e.g "request 2012"
+<b>request:</b> request a file - file must be a four digit number e.g "request 2012"
 
 quit: gracefully depart from peer network
+
 
 
 files undergo simulated hashing i.e filename converted to integers and divided by 256.
